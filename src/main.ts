@@ -225,6 +225,7 @@ app.innerHTML = `
         <div id="connStatus" class="status">Offline</div>
       </div>
       <div class="hint">Waiter phone aur counter PC same Wi‑Fi par hon. Counter PC ka IP: ipconfig se dekhein.</div>
+      <div class="hint" id="offlineHint">Offline dikhe to bhi &quot;Send to counter&quot; try karein – pehla request ~1 min le sakta hai (Render wake-up).</div>
     </section>
 
     <div id="viewLocalWaiter">
@@ -421,8 +422,22 @@ async function fetchJson(url: string, init?: RequestInit) {
   return res.json()
 }
 
-// Render free tier cold start ~60s; use long timeout + retry
-const CONN_CHECK_TIMEOUT_MS = 70000
+// Render cold start ~60s; use long timeout for API calls
+const API_TIMEOUT_MS = 90000
+
+async function fetchWithTimeout(url: string, init?: RequestInit): Promise<Response> {
+  const controller = new AbortController()
+  const t = setTimeout(() => controller.abort(), API_TIMEOUT_MS)
+  try {
+    const res = await fetch(url, { ...init, signal: controller.signal })
+    clearTimeout(t)
+    return res
+  } catch (e) {
+    clearTimeout(t)
+    throw e
+  }
+}
+
 const CONN_CHECK_RETRIES = 2
 
 async function updateConnStatus(force = false) {
@@ -439,10 +454,7 @@ async function updateConnStatus(force = false) {
   els.connStatus.textContent = 'Checking…'
   for (let attempt = 1; attempt <= CONN_CHECK_RETRIES; attempt++) {
     try {
-      const controller = new AbortController()
-      const t = setTimeout(() => controller.abort(), CONN_CHECK_TIMEOUT_MS)
-      const res = await fetch(url, { signal: controller.signal })
-      clearTimeout(t)
+      const res = await fetchWithTimeout(url)
       if (res.ok) {
         els.connStatus.textContent = 'Online'
         return
@@ -956,20 +968,25 @@ els.parseBtn.addEventListener('click', () => {
       }
       renderBill()
 
+      const base = serverUrl.replace(/\/+$/, '')
+      const addUrl = `${base}/api/order/${encodeURIComponent(tableId)}/add-items`
+      els.hint.textContent = 'Sending… (server waking up ho sakta hai, 90 sec tak wait karein)'
       try {
-        const base = serverUrl.replace(/\/+$/, '')
-        await fetchJson(`${base}/api/order/${encodeURIComponent(tableId)}/add-items`, {
+        const res = await fetchWithTimeout(addUrl, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ items: matched }),
         })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        await res.json()
         els.hint.textContent = `Sent to counter: ${tableId}`
         els.orderText.value = ''
         bill = []
         renderBill()
+        els.connStatus.textContent = 'Online'
         void updateConnStatus(true)
       } catch {
-        els.hint.textContent = 'Send failed. Server/Network check karein.'
+        els.hint.textContent = 'Send failed. Server wake ho raha ho to 1 min baad dubara try karein.'
       }
     })()
   } else {
