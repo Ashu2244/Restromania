@@ -221,6 +221,7 @@ app.innerHTML = `
           <input id="tableId" class="textInput" style="min-width:120px;" placeholder="T-5" />
         </label>
         <button id="saveConn" class="btn secondary" type="button">Save</button>
+        <button id="checkConn" class="btn ghost" type="button">Check</button>
         <div id="connStatus" class="status">Offline</div>
       </div>
       <div class="hint">Waiter phone aur counter PC same Wi‑Fi par hon. Counter PC ka IP: ipconfig se dekhein.</div>
@@ -349,6 +350,7 @@ const els = {
   serverUrl: document.querySelector<HTMLInputElement>('#serverUrl')!,
   tableId: document.querySelector<HTMLInputElement>('#tableId')!,
   saveConn: document.querySelector<HTMLButtonElement>('#saveConn')!,
+  checkConn: document.querySelector<HTMLButtonElement>('#checkConn')!,
   connStatus: document.querySelector<HTMLDivElement>('#connStatus')!,
   openOrders: document.querySelector<HTMLDivElement>('#openOrders')!,
   counterBill: document.querySelector<HTMLDivElement>('#counterBill')!,
@@ -419,6 +421,10 @@ async function fetchJson(url: string, init?: RequestInit) {
   return res.json()
 }
 
+// Render free tier cold start ~60s; use long timeout + retry
+const CONN_CHECK_TIMEOUT_MS = 70000
+const CONN_CHECK_RETRIES = 2
+
 async function updateConnStatus(force = false) {
   const { serverUrl } = getConn()
   if (!serverUrl) {
@@ -426,12 +432,30 @@ async function updateConnStatus(force = false) {
     return
   }
   if (!force && mode !== 'waiter' && mode !== 'counter') return
-  try {
-    // lightweight call
-    await fetchJson(`${serverUrl.replace(/\/+$/, '')}/api/orders/open`)
-    els.connStatus.textContent = 'Online'
-  } catch {
-    els.connStatus.textContent = 'Offline'
+
+  const base = serverUrl.replace(/\/+$/, '')
+  const url = `${base}/api/orders/open`
+
+  els.connStatus.textContent = 'Checking…'
+  for (let attempt = 1; attempt <= CONN_CHECK_RETRIES; attempt++) {
+    try {
+      const controller = new AbortController()
+      const t = setTimeout(() => controller.abort(), CONN_CHECK_TIMEOUT_MS)
+      const res = await fetch(url, { signal: controller.signal })
+      clearTimeout(t)
+      if (res.ok) {
+        els.connStatus.textContent = 'Online'
+        return
+      }
+      throw new Error(`HTTP ${res.status}`)
+    } catch {
+      if (attempt < CONN_CHECK_RETRIES) {
+        els.connStatus.textContent = `Waking up… (${attempt}/${CONN_CHECK_RETRIES})`
+        await new Promise((r) => setTimeout(r, 8000))
+      } else {
+        els.connStatus.textContent = 'Offline (retry Save)'
+      }
+    }
   }
 }
 
@@ -1182,6 +1206,7 @@ els.navWaiter.addEventListener('click', () => setMode('waiter'))
 els.navCounter.addEventListener('click', () => setMode('counter'))
 
 els.saveConn.addEventListener('click', () => saveConn())
+els.checkConn.addEventListener('click', () => void updateConnStatus(true))
 
 window.addEventListener('hashchange', () => setMode(getModeFromHash()))
 

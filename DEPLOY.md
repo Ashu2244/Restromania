@@ -38,20 +38,29 @@ Host karne ke baad **ek hi URL** se sab kaam chalega: manager counter + waiter p
 
 **Note:** Railway free tier me SQLite file restart pe reset ho sakti hai. Agar data permanent chahiye to Railway **Volume** add karo (paid) ya baad me Postgres switch karna padega.
 
+**Railway URL open nahi ho raha (DNS / This site can't be reached)?**  
+- India me kai baar Railway ka `*.up.railway.app` resolve nahi hota (ISP/DNS).  
+- Try: **Option 2 (Render)** use karo – `*.onrender.com` zyada reliable.  
+- Ya PC pe DNS flush: `ipconfig /flushdns`, phir browser me Google DNS (8.8.8.8) set karke dobara try karo.
+
 ---
 
-## Option 2: Render
+## Option 2: Render (Railway nahi khule to yahan deploy karo)
 
-1. [render.com](https://render.com) → Sign up → **New** → **Web Service**.
-2. GitHub repo connect karo (voice-billing).
-3. **Build Command:** `npm run build`  
-   **Start Command:** `npm start`
-4. **Environment:** `NODE_ENV` = `production`
-5. **Create Web Service** → URL milega. Phir same tarah:
-   - Counter: `https://YOUR-URL/#counter`
-   - Waiter: `https://YOUR-URL/#waiter`
+1. [render.com](https://render.com) → Sign up (GitHub se).
+2. **Dashboard** → **New +** → **Web Service**.
+3. **Connect** GitHub repo → `voice-billing` (ya jis naam se push kiya) select karo.
+4. **Settings** me:
+   - **Name:** restromania (ya jo chaho)
+   - **Build Command:** `npm run build`
+   - **Start Command:** `npm start`
+   - **Environment** → **Add Environment Variable:** `NODE_ENV` = `production`
+5. **Create Web Service** → deploy start. 2–3 min baad **URL** milega jaise `https://restromania.onrender.com`.
+6. Use:
+   - **Counter:** `https://YOUR-APP.onrender.com/#counter`
+   - **Waiter:** `https://YOUR-APP.onrender.com/#waiter`
 
-Render free tier pe service sleep ho jati hai; pehli request pe 1–2 min lag sakta hai.
+Render free tier pe service idle ke baad sleep ho jati hai; pehli open pe 1–2 min lag sakta hai, phir chal jati hai.
 
 ---
 
