@@ -123,7 +123,7 @@ app.post('/api/order/:orderId/close', (req, res) => {
 
 // SPA fallback: hosted pe sirf ek URL, #waiter / #counter client-side
 if (isProd) {
-  app.get('*', (_req, res) => {
+  app.get('/*', (_req, res) => {
     res.sendFile(path.join(__dirname, 'dist', 'index.html'))
   })
 }
