@@ -121,9 +121,9 @@ app.post('/api/order/:orderId/close', (req, res) => {
   res.json({ ok: true })
 })
 
-// SPA fallback: hosted pe sirf ek URL, #waiter / #counter client-side
+// SPA fallback: hosted pe #waiter / #counter ke liye index.html (Express 5 me * / /* invalid)
 if (isProd) {
-  app.get('/*', (_req, res) => {
+  app.get(/^(?!\/api).*$/, (_req, res) => {
     res.sendFile(path.join(__dirname, 'dist', 'index.html'))
   })
 }
